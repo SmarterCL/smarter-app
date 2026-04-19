@@ -21,10 +21,10 @@ import logging
 JWT_SECRET = "smarter-jwt-secret-change-in-prod"
 SUPABASE_URL = "https://rjfcmmzjlguiititkmyh.supabase.co"
 
-# Internal services (Docker network)
-N8N_URL = "http://n8n:5678"
+# Internal services (accessible from VPS)
+N8N_URL = "http://localhost:5678"
 PICOLAW_URL = "http://127.0.0.1:18792"
-CHAT_URL = "http://chat:3000"
+CHAT_URL = "http://localhost:3000"
 
 # Setup
 app = FastAPI(
