@@ -10,14 +10,12 @@ import {
 // MCP de Stitch
 const STITCH_MCP_URL = 'https://mcp.smarterbot.store/mcp';
 
-// Servicios a monitorear
-const SERVICES = {
-  RUT_OAUTH: 'https://rut.smarterbot.store',
-  MCP: 'https://mcp.smarterbot.store',
-  PICOLAW: 'https://api.smarterbot.store/picoclaw', // Proxy vía Caddy
-  SUPABASE: 'https://rjfcmmzjlguiititkmyh.supabase.co',
-  STITCH: 'https://stitch.withgoogle.com'
-};
+// Servicios a monitorear - ARQUITECTURA SIMPLIFICADA
+const API_BASE = 'https://api.smarterbot.store';
+
+// Todos los datos vienen de UN solo endpoint
+const DASHBOARD_ENDPOINT = `${API_BASE}/dashboard`;
+const HEALTH_ENDPOINT = `${API_BASE}/health`;
 
 interface ServiceStatus {
   name: string;
@@ -46,39 +44,40 @@ export default function StitchDashboard() {
   const [devices, setDevices] = useState<number>(0);
   const [uptime, setUptime] = useState<string>('');
 
-  // Conectar con MCP de Stitch
-  const fetchStitchMCP = async () => {
+  // Conectar con API unificada
+  const fetchDashboard = async () => {
     try {
-      // Obtener estadísticas de MCP
-      const statsResponse = await fetch(`${SERVICES.MCP}/health`);
-      if (statsResponse.ok) {
-        const stats = await statsResponse.json();
-        setStitchData({
-          n8nUrl: stats.n8n,
-          supabaseStatus: stats.supabase,
-          stats
-        });
-        if (stats.tools) {
-          setMcpTools(stats.tools);
+      const token = localStorage.getItem('smarter_auth_token');
+      
+      const [dashboardRes, healthRes] = await Promise.all([
+        fetch(DASHBOARD_ENDPOINT, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }),
+        fetch(HEALTH_ENDPOINT)
+      ]);
+      
+      if (dashboardRes.ok) {
+        const data = await dashboardRes.json();
+        setStitchData(data);
+        if (data.kpis) {
+          setActiveWorkflows(data.kpis.workflows_active || 0);
+          setTotalExecutions(data.kpis.total_executions || 0);
+        }
+        if (data.services) {
+          setDevices(data.services.devices || 0);
+          if (data.services.picoclaw?.online) {
+            setUptime(data.services.picoclaw.uptime || '');
+          }
         }
       }
-
-      // Obtener dispositivos de RUT OAuth
-      const devicesResponse = await fetch(`${SERVICES.RUT_OAUTH}/api/devices`);
-      if (devicesResponse.ok) {
-        const data = await devicesResponse.json();
-        setDevices(data.count || 0);
-      }
-
-      // Obtener uptime de Picoclaw
-      const picoclawResponse = await fetch(`${SERVICES.PICOLAW}/health`);
-      if (picoclawResponse.ok) {
-        const data = await picoclawResponse.json();
-        setUptime(data.uptime || '');
+      
+      if (healthRes.ok) {
+        const health = await healthRes.json();
+        // Parse services health
       }
 
     } catch (err) {
-      console.error('Error fetching Stitch MCP:', err);
+      console.error('Error fetching dashboard:', err);
     }
   };
 
