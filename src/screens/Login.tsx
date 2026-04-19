@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Leaf, Mail, Smartphone, Zap, User } from 'lucide-react';
-import { loginWithRut, getToken, isTokenValid, getProfile } from '../lib/auth';
+import { Leaf, Smartphone, Zap, User } from 'lucide-react';
 import { syncService } from '../lib/sync';
-import { validateRut, formatRut } from '../lib/rut';
 
 interface LoginProps {
   onLogin: (user: any) => void;
 }
+
+const API_BASE = 'https://api.smarterbot.store';
 
 const isAndroid = () => {
   return /android/i.test(navigator.userAgent) || (window as any).android !== undefined;
@@ -18,16 +18,13 @@ export default function Login({ onLogin }: LoginProps) {
   const [platform, setPlatform] = useState<'android' | 'web'>('web');
   const [rut, setRut] = useState('');
   const [rutError, setRutError] = useState('');
-  const [autoLoginExecuting, setAutoLoginExecuting] = useState(false);
 
   useEffect(() => {
     setPlatform(isAndroid() ? 'android' : 'web');
     
-    // AUTO-LOGIN: Buscar token guardado
-    const token = getToken();
-    if (token && isTokenValid(token) && !autoLoginExecuting) {
-      console.log('[Login] ✅ Token válido encontrado, auto-login');
-      setAutoLoginExecuting(true);
+    // Auto-login si hay token guardado
+    const token = localStorage.getItem('smarter_token');
+    if (token) {
       handleTokenLogin(token);
     }
   }, []);
@@ -35,20 +32,16 @@ export default function Login({ onLogin }: LoginProps) {
   // Login con token existente
   const handleTokenLogin = async (token: string) => {
     try {
-      const profile = await getProfile();
-      if (profile) {
-        const user = {
-          id: profile.rut,
-          rut: profile.rut,
-          email: `${profile.rut}@smarterbot.store`,
-          name: `Usuario ${profile.rut}`,
-          role: profile.role,
-          scopes: profile.scopes
-        };
-        onLogin(user);
+      const response = await fetch(`${API_BASE}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const user = await response.json();
+        onLogin({ ...user, token });
       }
     } catch (err) {
       console.error('[AutoLogin] Error:', err);
+      localStorage.removeItem('smarter_token');
     }
   };
 
@@ -58,63 +51,69 @@ export default function Login({ onLogin }: LoginProps) {
     setRut(value);
     
     if (value.length > 5) {
-      const isValid = validateRut(value);
-      setRutError(isValid ? '' : 'RUT inválido');
+      // Validación básica (completa en backend)
+      const clean = value.replace(/\./g, '').replace('-', '').toUpperCase();
+      if (clean.length < 8 || clean.length > 9) {
+        setRutError('RUT inválido');
+      } else {
+        setRutError('');
+      }
     } else {
       setRutError('');
     }
   };
 
-  // Login con RUT
-  const handleRutLogin = async () => {
-    if (!validateRut(rut)) {
-      setRutError('Ingresa un RUT válido');
-      return;
-    }
-
+  // Login como invitado (sin RUT)
+  const handleGuestLogin = async () => {
     setLoading(true);
-    setRutError('');
-
     try {
       const deviceId = syncService.getDeviceId() || `device-${Date.now()}`;
-      const result = await loginWithRut(rut, deviceId);
-
-      if (result) {
-        const user = {
-          id: result.user.rut,
-          rut: result.user.rut,
-          email: `${result.user.rut}@smarterbot.store`,
-          name: `Usuario ${result.user.rut}`,
-          role: result.user.role,
-          scopes: result.user.scopes,
-          devices: result.user.devices
-        };
-
-        console.log('[Login] ✅ Login exitoso:', user.rut);
-        onLogin(user);
-      } else {
-        setRutError('Error al iniciar sesión. Intenta nuevamente.');
+      const response = await fetch(`${API_BASE}/auth/login?device_id=${deviceId}`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('smarter_token', data.token);
+        console.log('[Login] ✅ Guest login:', data.user);
+        onLogin({ ...data.user, token: data.token });
       }
     } catch (err: any) {
-      console.error('[Login] Error:', err);
-      setRutError(err.message || 'Error de conexión');
+      console.error('[Guest Login] Error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Acceso rápido (Demo)
-  const handleQuickAccess = () => {
-    const demoRut = '11111111-1';
-    const user = {
-      id: demoRut,
-      rut: demoRut,
-      email: 'demo@smarterbot.store',
-      name: 'Usuario Demo',
-      role: 'buyer',
-      scopes: ['coupon:buy', 'coupon:send']
-    };
-    onLogin(user);
+  // Login con RUT
+  const handleRutLogin = async () => {
+    if (!rut || rutError) {
+      setRutError('Ingresa un RUT válido');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const deviceId = syncService.getDeviceId() || `device-${Date.now()}`;
+      const response = await fetch(`${API_BASE}/auth/login-rut?rut=${encodeURIComponent(rut)}&device_id=${deviceId}`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('smarter_token', data.token);
+        console.log('[Login] ✅ RUT login:', data.user);
+        onLogin({ ...data.user, token: data.token });
+      } else {
+        const error = await response.json();
+        setRutError(error.detail || 'Error al iniciar sesión');
+      }
+    } catch (err: any) {
+      console.error('[RUT Login] Error:', err);
+      setRutError('Error de conexión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,7 +134,7 @@ export default function Login({ onLogin }: LoginProps) {
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">SmarterOS</h1>
           <p className="text-purple-200 text-sm">
-            Ingresa con tu RUT para acceder
+            Ingresa con o sin RUT
           </p>
         </div>
 
@@ -145,14 +144,14 @@ export default function Login({ onLogin }: LoginProps) {
           {platform === 'android' && (
             <div className="mb-6 flex items-center gap-2 bg-green-500/20 text-green-300 px-3 py-1.5 rounded-full text-xs font-bold w-fit">
               <Smartphone size={14} />
-              Android • Sincronizado
+              Android • Chile
             </div>
           )}
 
           {/* Input RUT */}
           <div className="mb-6">
             <label className="block text-purple-200 text-sm font-bold mb-2">
-              RUT Chileno
+              RUT (Opcional)
             </label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-300" />
@@ -167,18 +166,18 @@ export default function Login({ onLogin }: LoginProps) {
             {rutError && (
               <p className="text-red-400 text-xs mt-2">{rutError}</p>
             )}
-            {rut.length > 5 && !rutError && (
-              <p className="text-green-400 text-xs mt-2">✓ RUT válido</p>
+            {rut.length > 8 && !rutError && (
+              <p className="text-green-400 text-xs mt-2">✓ Formato válido</p>
             )}
           </div>
 
-          {/* Botón Login */}
+          {/* Botón Login con RUT */}
           <button
             onClick={handleRutLogin}
-            disabled={loading || !validateRut(rut)}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-[0.98]"
+            disabled={loading || !rut || !!rutError}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg active:scale-[0.98] mb-4"
           >
-            {loading ? 'Iniciando...' : 'Iniciar Sesión'}
+            {loading ? 'Iniciando...' : (rut ? 'Iniciar con RUT' : 'Ingresa tu RUT')}
           </button>
 
           {/* Divider */}
@@ -191,26 +190,27 @@ export default function Login({ onLogin }: LoginProps) {
             </div>
           </div>
 
-          {/* Acceso Rápido */}
+          {/* Acceso Invitado (SIN RUT) */}
           <button
-            onClick={handleQuickAccess}
-            className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-purple-500/30 text-purple-200 font-bold py-3 rounded-xl transition-all active:scale-[0.98]"
+            onClick={handleGuestLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-purple-500/30 text-purple-200 font-bold py-4 rounded-xl transition-all active:scale-[0.98]"
           >
             <Zap size={16} />
-            Acceso Rápido (Demo)
+            Continuar sin RUT
           </button>
 
           {/* Info */}
           <div className="mt-6 text-center">
             <p className="text-purple-300/60 text-xs">
-              Al ingresar aceptas nuestros términos de servicio
+              El RUT solo se requiere para facturación
             </p>
           </div>
         </div>
 
         {/* Footer */}
         <p className="mt-8 text-center text-[10px] text-purple-300/40 font-bold uppercase tracking-[0.2em]">
-          SmarterOS Identity • RUT Auth v1.0
+          SmarterOS Chile • v2.0.0
         </p>
       </motion.div>
     </div>

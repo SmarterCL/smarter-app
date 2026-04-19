@@ -14,8 +14,8 @@ const STITCH_MCP_URL = 'https://mcp.smarterbot.store/mcp';
 const API_BASE = 'https://api.smarterbot.store';
 
 // Todos los datos vienen de UN solo endpoint
-const DASHBOARD_ENDPOINT = `${API_BASE}/dashboard`;
-const HEALTH_ENDPOINT = `${API_BASE}/health`;
+const DASHBOARD_ENDPOINT = `${API_BASE}/health`;
+const CONFIG_ENDPOINT = `${API_BASE}/config`;
 
 interface ServiceStatus {
   name: string;
@@ -47,33 +47,31 @@ export default function StitchDashboard() {
   // Conectar con API unificada
   const fetchDashboard = async () => {
     try {
-      const token = localStorage.getItem('smarter_auth_token');
-      
-      const [dashboardRes, healthRes] = await Promise.all([
-        fetch(DASHBOARD_ENDPOINT, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        }),
-        fetch(HEALTH_ENDPOINT)
+      const [healthRes, configRes] = await Promise.all([
+        fetch(DASHBOARD_ENDPOINT),
+        fetch(CONFIG_ENDPOINT)
       ]);
       
-      if (dashboardRes.ok) {
-        const data = await dashboardRes.json();
-        setStitchData(data);
-        if (data.kpis) {
-          setActiveWorkflows(data.kpis.workflows_active || 0);
-          setTotalExecutions(data.kpis.total_executions || 0);
-        }
-        if (data.services) {
-          setDevices(data.services.devices || 0);
-          if (data.services.picoclaw?.online) {
-            setUptime(data.services.picoclaw.uptime || '');
+      if (healthRes.ok) {
+        const health = await healthRes.json();
+        setStitchData(health);
+        
+        // Parse services
+        if (health.services) {
+          if (health.services.n8n?.status === 'ok') {
+            setActiveWorkflows(prev => prev + 1); // Simulado
+          }
+          if (health.services.picoclaw?.online || health.services.picoclaw?.status === 'ok') {
+            setUptime(health.services.picoclaw.uptime || '');
           }
         }
       }
       
-      if (healthRes.ok) {
-        const health = await healthRes.json();
-        // Parse services health
+      if (configRes.ok) {
+        const config = await configRes.json();
+        if (config.user?.scopes) {
+          setMcpTools(config.user.scopes);
+        }
       }
 
     } catch (err) {
