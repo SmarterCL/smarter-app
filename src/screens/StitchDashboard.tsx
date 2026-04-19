@@ -31,6 +31,8 @@ interface StitchData {
   executions?: any[];
   stats?: any;
   agents?: any[];
+  n8nUrl?: string;
+  supabaseStatus?: string;
 }
 
 export default function StitchDashboard() {
@@ -41,42 +43,38 @@ export default function StitchDashboard() {
   const [mcpTools, setMcpTools] = useState<string[]>([]);
   const [activeWorkflows, setActiveWorkflows] = useState<number>(0);
   const [totalExecutions, setTotalExecutions] = useState<number>(0);
+  const [devices, setDevices] = useState<number>(0);
+  const [uptime, setUptime] = useState<string>('');
 
   // Conectar con MCP de Stitch
   const fetchStitchMCP = async () => {
     try {
-      // Listar herramientas disponibles
-      const toolsResponse = await fetch(STITCH_MCP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'tools/list',
-          id: 1
-        })
-      });
-      
-      if (toolsResponse.ok) {
-        const data = await toolsResponse.json();
-        if (data.result?.tools) {
-          setMcpTools(data.result.tools.map((t: any) => t.name));
+      // Obtener estadísticas de MCP
+      const statsResponse = await fetch(`${SERVICES.MCP}/health`);
+      if (statsResponse.ok) {
+        const stats = await statsResponse.json();
+        setStitchData({
+          n8nUrl: stats.n8n,
+          supabaseStatus: stats.supabase,
+          stats
+        });
+        if (stats.tools) {
+          setMcpTools(stats.tools);
         }
       }
 
-      // Obtener estadísticas
-      const statsResponse = await fetch(`${SERVICES.MCP}/stats`);
-      if (statsResponse.ok) {
-        const stats = await statsResponse.json();
-        setStitchData({ stats });
-        setActiveWorkflows(stats.activeWorkflows || 0);
-        setTotalExecutions(stats.totalExecutions || 0);
+      // Obtener dispositivos de RUT OAuth
+      const devicesResponse = await fetch(`${SERVICES.RUT_OAUTH}/api/devices`);
+      if (devicesResponse.ok) {
+        const data = await devicesResponse.json();
+        setDevices(data.count || 0);
       }
 
-      // Listar workflows
-      const workflowsResponse = await fetch(`${SERVICES.MCP}/workflows`);
-      if (workflowsResponse.ok) {
-        const workflows = await workflowsResponse.json();
-        setStitchData(prev => ({ ...prev, workflows }));
+      // Obtener uptime de Picoclaw
+      const picoclawResponse = await fetch(`${SERVICES.PICOLAW}/health`);
+      if (picoclawResponse.ok) {
+        const data = await picoclawResponse.json();
+        setUptime(data.uptime || '');
       }
 
     } catch (err) {
@@ -235,8 +233,8 @@ export default function StitchDashboard() {
               <Workflow className="w-8 h-8 text-blue-200" />
               <Activity className="w-5 h-5 text-blue-300" />
             </div>
-            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-1">Workflows Activos</p>
-            <p className="text-3xl font-bold text-white">{activeWorkflows}</p>
+            <p className="text-blue-200 text-xs font-bold uppercase tracking-widest mb-1">Herramientas MCP</p>
+            <p className="text-3xl font-bold text-white">{mcpTools.length}</p>
           </motion.div>
 
           <motion.div
@@ -247,10 +245,10 @@ export default function StitchDashboard() {
           >
             <div className="flex items-center justify-between mb-2">
               <Zap className="w-8 h-8 text-purple-200" />
-              <BarChart3 className="w-5 h-5 text-purple-300" />
+              <Wifi className="w-5 h-5 text-purple-300" />
             </div>
-            <p className="text-purple-200 text-xs font-bold uppercase tracking-widest mb-1">Ejecuciones Totales</p>
-            <p className="text-3xl font-bold text-white">{totalExecutions.toLocaleString()}</p>
+            <p className="text-purple-200 text-xs font-bold uppercase tracking-widest mb-1">Dispositivos</p>
+            <p className="text-3xl font-bold text-white">{devices}</p>
           </motion.div>
 
           <motion.div
@@ -261,10 +259,10 @@ export default function StitchDashboard() {
           >
             <div className="flex items-center justify-between mb-2">
               <MessageSquare className="w-8 h-8 text-emerald-200" />
-              <Users className="w-5 h-5 text-emerald-300" />
+              <Activity className="w-5 h-5 text-emerald-300" />
             </div>
-            <p className="text-emerald-200 text-xs font-bold uppercase tracking-widest mb-1">Agentes MCP</p>
-            <p className="text-3xl font-bold text-white">{mcpTools.length}</p>
+            <p className="text-emerald-200 text-xs font-bold uppercase tracking-widest mb-1">Picoclaw Uptime</p>
+            <p className="text-xl font-bold text-white">{uptime || '---'}</p>
           </motion.div>
 
           <motion.div
@@ -354,32 +352,34 @@ export default function StitchDashboard() {
           </motion.div>
         )}
 
-        {/* Supabase Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1 }}
-          className="bg-gradient-to-r from-cyan-900/50 to-blue-900/50 backdrop-blur border border-cyan-700 rounded-xl p-6"
-        >
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Database className="w-6 h-6 text-cyan-400" />
-            Supabase Connection
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 text-xs font-bold uppercase mb-1">Project ID</p>
-              <p className="text-white font-mono text-sm">rjfcmmzjlguiititkmyh</p>
+        {/* n8n + Supabase Info */}
+        {stitchData.n8nUrl && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1 }}
+            className="bg-gradient-to-r from-cyan-900/50 to-blue-900/50 backdrop-blur border border-cyan-700 rounded-xl p-6"
+          >
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Database className="w-6 h-6 text-cyan-400" />
+              Infraestructura Stitch
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-900/50 rounded-lg p-4">
+                <p className="text-cyan-400 text-xs font-bold uppercase mb-1">n8n Workflow</p>
+                <p className="text-white font-mono text-sm">{stitchData.n8nUrl}</p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-4">
+                <p className="text-cyan-400 text-xs font-bold uppercase mb-1">Supabase</p>
+                <p className="text-green-400 font-bold">● {stitchData.supabaseStatus || 'Conectado'}</p>
+              </div>
+              <div className="bg-slate-900/50 rounded-lg p-4">
+                <p className="text-cyan-400 text-xs font-bold uppercase mb-1">Project</p>
+                <p className="text-white font-mono text-sm">rjfcmmzjlguiititkmyh</p>
+              </div>
             </div>
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 text-xs font-bold uppercase mb-1">Estado</p>
-              <p className="text-green-400 font-bold">● Conectado</p>
-            </div>
-            <div className="bg-slate-900/50 rounded-lg p-4">
-              <p className="text-cyan-400 text-xs font-bold uppercase mb-1">Región</p>
-              <p className="text-white font-bold">us-east-1</p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
 
         {/* Footer */}
         <div className="mt-8 text-center text-purple-400/60 text-xs">
