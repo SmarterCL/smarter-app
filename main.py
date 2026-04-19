@@ -7,30 +7,30 @@ ENDPOINTS:
 - GET  /auth/me        → Perfil usuario (protected)
 - GET  /dashboard      → Datos dashboard (n8n + picoclaw + kpis)
 - GET  /health         → Health check servicios
+- GET  /config         → Configuración dinámica (feature flags)
+- POST /event          → Eventos para n8n
 """
 
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
 import requests
+import os
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 import logging
 
-# Config
-JWT_SECRET = "smarter-jwt-secret-change-in-prod"
-SUPABASE_URL = "https://rjfcmmzjlguiititkmyh.supabase.co"
-
-# Internal services (accessible from VPS)
-N8N_URL = "http://localhost:5678"
-PICOLAW_URL = "http://127.0.0.1:18792"
-CHAT_URL = "http://localhost:3000"
+# Config from environment (production ready)
+JWT_SECRET = os.getenv("JWT_SECRET", "smarter-jwt-secret-change-in-prod")
+N8N_URL = os.getenv("N8N_URL", "http://localhost:5678")
+PICOLAW_URL = os.getenv("PICOLAW_URL", "http://127.0.0.1:18792")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://rjfcmmzjlguiititkmyh.supabase.co")
 
 # Setup
 app = FastAPI(
     title="SmarterOS API",
     description="Backend unificado para SmarterOS",
-    version="1.0.0"
+    version="1.0.6"
 )
 
 # CORS - Permitir app.smarterbot.store
@@ -78,76 +78,94 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
 
 @app.get("/health")
 def health_check():
-    """Health check de todos los servicios"""
+    """Health check de todos los servicios - CRÍTICO"""
     services = {}
     
     # n8n
     try:
-        r = requests.get(f"{N8N_URL}/healthz", timeout=2)
-        services["n8n"] = {"status": "ok", "response_time": r.elapsed.total_seconds() * 1000}
-    except:
-        services["n8n"] = {"status": "offline"}
+        r = requests.get(f'{N8N_URL}/healthz', timeout=2)
+        services['n8n'] = {'status': 'ok', 'response_time': round(r.elapsed.total_seconds() * 1000, 2)}
+    except Exception as e:
+        services['n8n'] = {'status': 'offline', 'error': str(e)}
     
     # Picoclaw
     try:
-        r = requests.get(f"{PICOLAW_URL}/health", timeout=2)
-        data = r.json()
-        services["picoclaw"] = {
-            "status": "ok",
-            "uptime": data.get("uptime", "unknown"),
-            "response_time": r.elapsed.total_seconds() * 1000
+        r = requests.get(f'{PICOLAW_URL}/health', timeout=2)
+        services['picoclaw'] = {
+            'status': 'ok',
+            'uptime': r.json().get('uptime', ''),
+            'response_time': round(r.elapsed.total_seconds() * 1000, 2)
         }
-    except:
-        services["picoclaw"] = {"status": "offline"}
-    
-    # Chat
-    try:
-        r = requests.get(f"{CHAT_URL}/health", timeout=2)
-        services["chat"] = {"status": "ok", "response_time": r.elapsed.total_seconds() * 1000}
-    except:
-        services["chat"] = {"status": "offline"}
+    except Exception as e:
+        services['picoclaw'] = {'status': 'offline', 'error': str(e)}
     
     # Supabase
-    services["supabase"] = {"status": "connected", "project": "rjfcmmzjlguiititkmyh"}
+    services['supabase'] = {'status': 'connected', 'project': SUPABASE_URL.split('//')[1].split('.')[0]}
     
-    all_ok = all(s.get("status") == "ok" for s in services.values())
+    # Status crítico: solo 'ok' si TODOS están ok
+    all_ok = all(s.get('status') == 'ok' for s in services.values())
     
     return {
-        "status": "ok" if all_ok else "degraded",
-        "services": services,
-        "timestamp": datetime.utcnow().isoformat()
+        'status': 'ok' if all_ok else 'degraded',
+        'services': services,
+        'timestamp': datetime.utcnow().isoformat()
     }
 
 @app.get("/ready")
 def ready_check():
     """Ready check simple"""
-    return {"status": "ok"}
+    return {'status': 'ok'}
 
-@app.post("/auth/login")
-def login(rut: str, device_id: str):
-    """Login con RUT - emite JWT token"""
-    # Validar RUT básico
-    if not rut or len(rut) < 8:
-        raise HTTPException(400, "RUT inválido")
-    
-    # Generar token
-    token = create_token({
-        "rut": rut,
-        "role": "buyer",
-        "scopes": ["dashboard", "coupon:buy"]
-    })
-    
-    # Log login
-    logger.info(f"Login: {rut} from {device_id}")
-    
+@app.get("/config")
+def get_config(user: dict = Depends(get_current_user)):
+    """Configuración dinámica por usuario (feature flags)"""
+    # En producción: leer de Supabase
     return {
-        "token": token,
-        "user": {
-            "rut": rut,
-            "role": "buyer",
-            "scopes": ["dashboard", "coupon:buy"]
+        'version': '1.0.6',
+        'features': {
+            'coupons': True,
+            'fleet': False,
+            'dashboard_v2': True
+        },
+        'ui': {
+            'theme': 'dark',
+            'dashboard': 'standard'
+        },
+        'user': {
+            'role': user.get('role', 'buyer'),
+            'scopes': user.get('scopes', [])
         }
     }
+
+@app.post("/event")
+def trigger_event(action: str, data: Optional[Dict] = None, user: dict = Depends(get_current_user)):
+    """Eventos para n8n - Trigger por acción del usuario"""
+    logger.info(f'Event: {action} by user {user.get("rut")}')
+    
+    try:
+        # Trigger webhook en n8n
+        webhook_url = f"{N8N_URL}/webhook/{action}"
+        payload = {
+            'action': action,
+            'user': user,
+            'data': data or {},
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        r = requests.post(webhook_url, json=payload, timeout=5)
+        
+        return {
+            'success': True,
+            'action': action,
+            'n8n_status': r.status_code if r.ok else 'error'
+        }
+    except Exception as e:
+        logger.error(f'Event {action} failed: {e}')
+        return {
+            'success': False,
+            'action': action,
+            'error': str(e)
+        }
 
 # ============================================================
 # ENDPOINTS PROTEGIDOS
@@ -164,51 +182,46 @@ def dashboard(user: dict = Depends(get_current_user)):
     
     # Obtener health de servicios
     health_data = {}
+    try:
+        r = requests.get(f'{N8N_URL}/healthz', timeout=2)
+        health_data['n8n'] = True
+    except:
+        health_data['n8n'] = False
     
     try:
-        r = requests.get(f"{N8N_URL}/healthz", timeout=2)
-        health_data["n8n"] = True
+        r = requests.get(f'{PICOLAW_URL}/health', timeout=2)
+        health_data['picoclaw'] = {'online': True, 'uptime': r.json().get('uptime', '')}
     except:
-        health_data["n8n"] = False
-    
-    try:
-        r = requests.get(f"{PICOLAW_URL}/health", timeout=2)
-        picoclaw_data = r.json()
-        health_data["picoclaw"] = {
-            "online": True,
-            "uptime": picoclaw_data.get("uptime", "unknown")
-        }
-    except:
-        health_data["picoclaw"] = {"online": False}
+        health_data['picoclaw'] = {'online': False}
     
     # KPIs (simulados - luego de DB real)
     kpis = {
-        "workflows_active": 12,
-        "devices_registered": 3,
-        "total_executions": 1547,
-        "uptime_percent": 99.8
+        'workflows_active': 12,
+        'devices_registered': 3,
+        'total_executions': 1547,
+        'uptime_percent': 99.8
     }
     
     return {
-        "user": user,
-        "services": health_data,
-        "kpis": kpis,
-        "timestamp": datetime.utcnow().isoformat()
+        'user': user,
+        'services': health_data,
+        'kpis': kpis,
+        'timestamp': datetime.utcnow().isoformat()
     }
 
 @app.get("/mcp/tools")
 def list_mcp_tools(user: dict = Depends(get_current_user)):
     """Listar herramientas MCP disponibles"""
     return {
-        "tools": [
-            "list_workflows",
-            "get_workflow",
-            "search_workflows",
-            "get_executions",
-            "trigger_webhook",
-            "log_execution"
+        'tools': [
+            'list_workflows',
+            'get_workflow',
+            'search_workflows',
+            'get_executions',
+            'trigger_webhook',
+            'log_execution'
         ],
-        "user_scopes": user.get("scopes", [])
+        'user_scopes': user.get('scopes', [])
     }
 
 # ============================================================
@@ -217,14 +230,14 @@ def list_mcp_tools(user: dict = Depends(get_current_user)):
 @app.middleware("http")
 async def log_requests(request, call_next):
     """Log todas las requests"""
-    logger.info(f"{request.method} {request.url.path}")
+    logger.info(f'{request.method} {request.url.path}')
     response = await call_next(request)
-    logger.info(f"Status: {response.status_code}")
+    logger.info(f'Status: {response.status_code}')
     return response
 
 # ============================================================
 # START
 # ============================================================
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host='0.0.0.0', port=8099)
