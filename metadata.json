@@ -1,0 +1,11 @@
+{
+  "name": "SmarterOS",
+  "description": "Una plataforma ecológica inteligente para gestionar ecocupones, canastas orgánicas e impacto ambiental positivo.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "auth",
+    "database"
+  ]
+}
