@@ -13,9 +13,10 @@ const iconMap: Record<string, any> = {
 interface HomeProps {
   user: UserProfile;
   onNavigate: (tab: string) => void;
+  onViewReports: () => void;
 }
 
-export default function Home({ user, onNavigate }: HomeProps) {
+export default function Home({ user, onNavigate, onViewReports }: HomeProps) {
   return (
     <div className="pb-24">
       {/* Header */}
@@ -119,7 +120,10 @@ export default function Home({ user, onNavigate }: HomeProps) {
         <section className="mb-12">
           <div className="flex justify-between items-center mb-6 px-2">
             <h2 className="font-headline font-bold text-slate-900 text-lg">Actividad Reciente</h2>
-            <button className="text-primary font-bold text-xs uppercase tracking-wider hover:underline transition-all font-headline">
+            <button
+              onClick={onViewReports}
+              className="text-primary font-bold text-xs uppercase tracking-wider hover:underline transition-all font-headline"
+            >
               Ver todo
             </button>
           </div>

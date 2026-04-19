@@ -21,10 +21,21 @@ export default function Login({ onLogin }: LoginProps) {
         return;
       }
 
+      // Detectamos el origen
+      let redirectTo = window.location.origin.replace(/\/$/, "");
+
+      // Si estamos en el móvil (Capacitor), a veces el origen es nulo o local
+      // Forzamos localhost si no detectamos una URL válida para asegurar coincidencia
+      if (!redirectTo.includes('localhost') && !redirectTo.includes('run.app')) {
+        redirectTo = 'https://localhost';
+      }
+
+      console.log('Login Auth -> Redirect URI:', redirectTo);
+
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectTo,
           queryParams: {
             prompt: 'select_account'
           }
