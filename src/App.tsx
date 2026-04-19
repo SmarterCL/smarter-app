@@ -12,6 +12,7 @@ import Login from './screens/Login';
 import Reports from './screens/Reports';
 import Profile from './screens/Profile';
 import SmarterDashboard from './screens/SmarterDashboard';
+import StitchDashboard from './screens/StitchDashboard';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -21,6 +22,7 @@ export default function App() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showReports, setShowReports] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showStitchDashboard, setShowStitchDashboard] = useState(false);
 
   // Memoized function to fetch real profile data
   const syncUserProfile = useCallback(async (sessionUser: any) => {
@@ -149,6 +151,10 @@ export default function App() {
   }
 
   // Dashboard MCP (acceso directo con tecla D o desde Profile)
+  if (showStitchDashboard) {
+    return <StitchDashboard onBack={() => setShowStitchDashboard(false)} />;
+  }
+
   if (showDashboard) {
     return <SmarterDashboard onBack={() => setShowDashboard(false)} />;
   }
@@ -207,7 +213,12 @@ export default function App() {
             />
           )}
           {activeTab === 'profile' && (
-            <Profile user={user} onLogout={handleLogout} onOpenDashboard={() => setShowDashboard(true)} />
+            <Profile 
+              user={user} 
+              onLogout={handleLogout} 
+              onOpenDashboard={() => setShowDashboard(true)}
+              onOpenStitchDashboard={() => setShowStitchDashboard(true)}
+            />
           )}
         </motion.div>
       </AnimatePresence>

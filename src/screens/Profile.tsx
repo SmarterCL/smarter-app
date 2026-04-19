@@ -1,19 +1,21 @@
 import { motion } from 'motion/react';
-import { Settings, LogOut, ChevronRight, MapPin, ShieldCheck, Mail, Phone, ShoppingBag, Leaf, Gift, Activity } from 'lucide-react';
+import { Settings, LogOut, ChevronRight, MapPin, ShieldCheck, Mail, Phone, ShoppingBag, Leaf, Gift, Activity, Cloud } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface ProfileProps {
   user: UserProfile;
   onLogout: () => void;
   onOpenDashboard?: () => void;
+  onOpenStitchDashboard?: () => void;
 }
 
-export default function Profile({ user, onLogout, onOpenDashboard }: ProfileProps) {
+export default function Profile({ user, onLogout, onOpenDashboard, onOpenStitchDashboard }: ProfileProps) {
   const formatCLP = (val: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
   };
 
   const menuItems = [
+    { icon: Cloud, label: 'Stitch Dashboard', detail: 'Google MCP + n8n', action: 'stitch' },
     { icon: Activity, label: 'Dashboard MCP', detail: 'Monitoreo de servicios', action: 'dashboard' },
     { icon: MapPin, label: 'Mis Direcciones', detail: 'Vitacura, Santiago' },
     { icon: ShoppingBag, label: 'Historial de Pedidos', detail: '8 pedidos realizados' },
@@ -82,7 +84,10 @@ export default function Profile({ user, onLogout, onOpenDashboard }: ProfileProp
             {menuItems.map((item, idx) => (
               <button
                 key={idx}
-                onClick={() => item.action === 'dashboard' && onOpenDashboard?.()}
+                onClick={() => {
+                  if (item.action === 'stitch') onOpenStitchDashboard?.();
+                  else if (item.action === 'dashboard') onOpenDashboard?.();
+                }}
                 className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
               >
                 <div className="flex items-center gap-4">
