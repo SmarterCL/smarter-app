@@ -108,7 +108,7 @@ export default function Home({ user, onNavigate, onViewReports }: HomeProps) {
                 </span>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-bold headline text-slate-900">
-                    ${user.balance.toLocaleString()}
+                    ${((user.balance || 0)).toLocaleString()}
                   </span>
                 </div>
               </div>

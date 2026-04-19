@@ -8,9 +8,13 @@ interface ReportsProps {
 }
 
 export default function Reports({ onBack }: ReportsProps) {
+  const formatCLP = (val: number) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
+  };
+
   const stats = [
     { label: 'CO2 Ahorrado', value: '12.5 kg', icon: Leaf, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { label: 'Ahorro Total', value: '$124.50', icon: Wallet, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { label: 'Ahorro Total', value: formatCLP(124500), icon: Wallet, color: 'text-blue-500', bg: 'bg-blue-50' },
     { label: 'Eficiencia', value: '+18%', icon: TrendingUp, color: 'text-amber-500', bg: 'bg-amber-50' },
   ];
 
@@ -85,7 +89,7 @@ export default function Reports({ onBack }: ReportsProps) {
                   )}
                 />
                 <span className="text-[10px] font-bold text-slate-400">
-                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'][i]}
+                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'][i]}
                 </span>
               </div>
             ))}

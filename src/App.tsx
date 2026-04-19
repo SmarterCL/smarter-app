@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { supabase } from './lib/supabase';
+import { syncService } from './lib/sync';
 import { UserProfile, Product } from './types';
 import Navigation from './components/Navigation';
 import Home from './screens/Home';
@@ -10,6 +11,7 @@ import Checkout from './screens/Checkout';
 import Login from './screens/Login';
 import Reports from './screens/Reports';
 import Profile from './screens/Profile';
+import SmarterDashboard from './screens/SmarterDashboard';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -18,6 +20,7 @@ export default function App() {
   const [cart, setCart] = useState<Product[]>([]);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showReports, setShowReports] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   // Memoized function to fetch real profile data
   const syncUserProfile = useCallback(async (sessionUser: any) => {
@@ -78,6 +81,50 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [syncUserProfile]);
 
+  // Manejar login con sincronización Android-Backend
+  const handleLogin = async (userData: any) => {
+    console.log('[App] handleLogin llamado con:', userData);
+    
+    if (!userData) {
+      console.error('[App] handleLogin: userData es null/undefined');
+      return;
+    }
+    
+    // Asegurar que userData tenga los campos requeridos
+    const normalizedUser = {
+      id: userData.id || `user-${Date.now()}`,
+      name: userData.name || userData.email || 'Usuario',
+      email: userData.email || '',
+      avatar: userData.avatar || '',
+      balance: userData.balance || 0,
+      activeCoupons: userData.activeCoupons || 0
+    };
+    
+    console.log('[App] Usuario normalizado:', normalizedUser);
+    
+    setUser(normalizedUser);
+
+    // Sincronizar con backends si es Android
+    try {
+      if (syncService.getDeviceId()) {
+        await syncService.syncUser(normalizedUser);
+        syncService.startHeartbeat(30000);
+      }
+    } catch (err) {
+      console.error('[App] Error sincronizando:', err);
+    }
+    
+    console.log('[App] ✅ Login completado, usuario establecido');
+  };
+
+  // Manejar logout
+  const handleLogout = async () => {
+    await syncService.logout();
+    syncService.stopHeartbeat();
+    localStorage.removeItem('smarter_session'); // Limpiar sesión persistente
+    setUser(null);
+  };
+
   const handleAddToCart = (product: Product) => {
     setCart((prev) => [...prev, product]);
   };
@@ -98,7 +145,12 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onLogin={() => {}} />; // Login handles redirect
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Dashboard MCP (acceso directo con tecla D o desde Profile)
+  if (showDashboard) {
+    return <SmarterDashboard onBack={() => setShowDashboard(false)} />;
   }
 
   if (showReports) {
@@ -155,7 +207,7 @@ export default function App() {
             />
           )}
           {activeTab === 'profile' && (
-            <Profile user={user} onLogout={() => setUser(null)} />
+            <Profile user={user} onLogout={handleLogout} onOpenDashboard={() => setShowDashboard(true)} />
           )}
         </motion.div>
       </AnimatePresence>

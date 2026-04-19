@@ -13,6 +13,10 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
   const discount = total * 0.2;
   const finalTotal = total - discount;
 
+  const formatCLP = (val: number) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
       <header className="fixed top-0 w-full z-10 bg-white/80 backdrop-blur-md flex justify-between items-center px-6 h-16 max-w-2xl mx-auto left-1/2 -translate-x-1/2 border-b border-slate-100">
@@ -23,11 +27,11 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
           >
             <ArrowLeft size={18} className="text-slate-900" />
           </button>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight headline">Checkout</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight headline">Pago</h1>
         </div>
         <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 border border-slate-200 rounded-lg">
           <ShieldCheck size={14} className="text-slate-500" />
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider headline font-medium">Secured</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider headline font-medium">Seguro</span>
         </div>
       </header>
 
@@ -64,7 +68,7 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <h3 className="font-bold text-slate-800 leading-tight text-sm headline">{item.name}</h3>
-                    <span className="font-bold text-slate-900 text-sm">${item.price.toFixed(2)}</span>
+                    <span className="font-bold text-slate-900 text-sm">{formatCLP(item.price)}</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1 line-clamp-1 italic font-medium">{item.description}</p>
                 </div>
@@ -79,13 +83,13 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-2">
               <CheckCircle size={18} className="fill-current text-sky-400" />
-              <h2 className="font-headline font-bold text-md tracking-tight">Ecocupon Aplicado</h2>
+              <h2 className="font-headline font-bold text-md tracking-tight">Ecocupón Aplicado</h2>
             </div>
             <div className="flex items-center gap-2 bg-slate-900 w-fit px-4 py-2 rounded-lg border border-slate-800">
               <span className="text-[10px] font-bold uppercase tracking-widest text-sky-400">ECOGREEN20</span>
               <CheckCircle size={12} className="text-sky-400" />
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Estás ahorrando {(total * 0.1).toFixed(1)}kg de CO2 con esta compra</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Estás ahorrando un 20% adicional con esta compra</p>
           </div>
         </section>
 
@@ -94,20 +98,20 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
           <div className="space-y-3">
             <div className="flex justify-between items-center text-slate-400">
               <span className="text-xs font-bold uppercase tracking-wider">Subtotal</span>
-              <span className="font-bold text-sm">${total.toFixed(2)}</span>
+              <span className="font-bold text-sm">{formatCLP(total)}</span>
             </div>
             <div className="flex justify-between items-center text-sky-400">
-              <span className="text-xs font-bold uppercase tracking-wider">Descuento Ecocupon (20%)</span>
-              <span className="font-bold">-${discount.toFixed(2)}</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Descuento Ecocupón (20%)</span>
+              <span className="font-bold">-{formatCLP(discount)}</span>
             </div>
             <div className="flex justify-between items-center text-slate-400">
               <span className="text-xs font-bold uppercase tracking-wider">Costo de Envío</span>
-              <span className="font-bold text-xs uppercase text-success">Gratis</span>
+              <span className="font-bold text-xs uppercase text-emerald-400 tracking-widest">Gratis</span>
             </div>
             <div className="pt-4 border-t border-slate-800 flex justify-between items-end">
               <div>
                 <p className="text-[10px] font-bold text-slate-500 tracking-widest uppercase headline">Total a pagar</p>
-                <p className="text-3xl font-bold text-white tracking-tight headline">${finalTotal.toFixed(2)}</p>
+                <p className="text-3xl font-bold text-white tracking-tight headline">{formatCLP(finalTotal)}</p>
               </div>
             </div>
           </div>
@@ -136,7 +140,7 @@ export default function Checkout({ items, total, onBack, onComplete }: CheckoutP
         <div className="flex items-center justify-center gap-2 text-zinc-400">
           <ShieldCheck size={14} />
           <p className="text-[10px] font-medium leading-tight headline uppercase tracking-wider">
-            Encriptación de grado bancario
+            Encriptación nivel bancario
           </p>
         </div>
       </div>

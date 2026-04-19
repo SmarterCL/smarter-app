@@ -12,6 +12,10 @@ interface StoreProps {
 }
 
 export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }: StoreProps) {
+  const formatCLP = (val: number) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
+  };
+
   return (
     <div className="pb-32">
       <header className="fixed top-0 w-full z-10 bg-white/80 backdrop-blur-md flex justify-between items-center px-6 h-16 max-w-2xl mx-auto left-1/2 -translate-x-1/2 border-b border-slate-100">
@@ -26,7 +30,7 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
       <main className="pt-24 px-6 max-w-2xl mx-auto">
         <section className="mb-12">
           <h1 className="text-3xl font-bold text-slate-900 mb-4 tracking-tight leading-tight headline">
-            Fresh from the <span className="text-primary italic">Earth</span> to your doorstep.
+            Fresco de la <span className="text-primary italic">Tierra</span> a tu puerta.
           </h1>
           <div className="relative group">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
@@ -34,7 +38,7 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
             </div>
             <input 
               type="text"
-              placeholder="Search organic produce..."
+              placeholder="Buscar productos orgánicos..."
               className="w-full pl-12 pr-6 py-4 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-primary/20 text-md transition-all duration-300 placeholder:text-slate-300 shadow-sm"
             />
           </div>
@@ -42,7 +46,7 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
 
         {/* Categories */}
         <section className="mb-10 overflow-x-auto no-scrollbar flex gap-3 pb-2">
-          {['All', 'Vegetables', 'Fruits', 'Dairy', 'Artisan'].map((cat, i) => (
+          {['Todo', 'Verduras', 'Frutas', 'Lácteos', 'Artesanal'].map((cat, i) => (
             <button 
               key={cat}
               className={cn(
@@ -86,12 +90,12 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
                     <h3 className="text-2xl font-bold text-white mb-1 headline">{product.name}</h3>
                     <p className="text-slate-300 mb-4 max-w-sm text-xs line-clamp-2">{product.description}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xl font-bold text-white">${product.price.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-white">{formatCLP(product.price)}</span>
                       <button 
                         onClick={() => onAddToCart(product)}
                         className="px-5 py-2 rounded-lg bg-sky-400 text-slate-950 font-bold hover:bg-sky-300 transition-colors text-xs headline"
                       >
-                        Add to Basket
+                        Añadir al Carrito
                       </button>
                     </div>
                   </div>
@@ -106,7 +110,7 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
                     <div>
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-md text-slate-800 headline leading-tight">{product.name}</h4>
-                        <span className="font-bold text-primary">${product.price.toFixed(2)}</span>
+                        <span className="font-bold text-primary">{formatCLP(product.price)}</span>
                       </div>
                       <p className="text-slate-400 text-[11px] mt-1 italic line-clamp-1">{product.description}</p>
                     </div>
@@ -115,7 +119,7 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
                       className="w-full mt-3 py-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-100 font-bold flex items-center justify-center gap-2 hover:bg-slate-900 hover:text-white transition-all text-xs"
                     >
                       <Plus size={14} />
-                      Quick Add
+                      Añadir Rápido
                     </button>
                   </div>
                 </div>
@@ -139,12 +143,12 @@ export default function Store({ onAddToCart, cartCount, cartTotal, onViewCart }:
                 <ShoppingBasket size={20} className="fill-current" />
               </div>
               <div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-headline">Your Basket</p>
-                <p className="font-bold text-md headline">{cartCount} Items <span className="mx-2 opacity-30">|</span> ${cartTotal.toFixed(2)}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest font-headline">Tu Carrito</p>
+                <p className="font-bold text-md headline">{cartCount} Ítems <span className="mx-2 opacity-30">|</span> {formatCLP(cartTotal)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-sky-400 text-slate-950 px-4 py-2 rounded-lg">
-              <span className="font-bold text-xs headline uppercase tracking-wide">Checkout</span>
+              <span className="font-bold text-xs headline uppercase tracking-wide">Pagar</span>
               <ArrowRight size={16} />
             </div>
           </motion.div>
