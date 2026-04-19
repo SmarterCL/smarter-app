@@ -14,7 +14,7 @@ const STITCH_MCP_URL = 'https://mcp.smarterbot.store/mcp';
 const SERVICES = {
   RUT_OAUTH: 'https://rut.smarterbot.store',
   MCP: 'https://mcp.smarterbot.store',
-  PICOLAW: 'https://flow.smarterbot.cl',
+  PICOLAW: 'https://api.smarterbot.store/picoclaw', // Proxy vía Caddy
   SUPABASE: 'https://rjfcmmzjlguiititkmyh.supabase.co',
   STITCH: 'https://stitch.withgoogle.com'
 };
